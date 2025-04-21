@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Build Image
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    name: Build and publish
+    permissions:
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup larger container storage
+        run: |
+          set -euo pipefail
+
+          # Setup docker storage directory in /mnt
+          sudo mkdir -p /mnt/var_lib_docker
+          sudo chown 777 /mnt/var_lib_docker
+
+          # Stop docker service before bind mounting
+          sudo systemctl stop docker
+
+          # Bind mount /mnt/var_lib_docker to /var/lib/docker
+          sudo mount --bind /mnt/var_lib_docker /var/lib/docker
+
+          # Start docker service
+          sudo systemctl start docker
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Call Dagger Function
+        uses: dagger/dagger-for-github@8.0.0
+        with:
+          version: "latest"
+          module: github.com/Zeglius/bootc-dagger/ci@main
+          verb: call
+          args: new-builder ${{ github.event_name == 'pull_request' && ' --dry-run' || '' }} --cfg-file=./bootc-ci.yaml --build-context=. --secrets=env://GITHUB_SHA,env://GITHUB_REPOSITORY,env://CI,env://GITHUB_REPOSITORY_OWNER,env://GITHUB_REF_NAME build
+          # assumes the Dagger Cloud token is in
+          # a repository secret named DAGGER_CLOUD_TOKEN
+          # set via the GitHub UI/CLI
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}

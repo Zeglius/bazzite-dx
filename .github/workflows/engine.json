@@ -1,0 +1,9 @@
+{
+  "$schema": "https://docs.dagger.io/reference/engine.schema.json",
+  "gc": {
+    "enabled": true,
+    "reservedSpace": "90%",
+    "maxUsedSpace": "100%",
+    "minFreeSpace": "0%"
+  }
+}

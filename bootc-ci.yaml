@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=./bootc-ci.schema.json
+
+# {{ $secrets := default (dict) .secrets }}
+
+# {{ $major_version := "42" }} {{/* NOTE: modify this to switch between major versions */}}
+# {{ $base_images := slice "bazzite" }}
+# {{ $base_images := append $base_images "bazzite-nvidia-open" }}
+# {{ $base_images := append $base_images "bazzite-gnome" }}
+# {{ $base_images := append $base_images "bazzite-gnome-nvidia-open" }}
+# {{ $owner := default "ublue-os" $secrets.GITHUB_REPOSITORY_OWNER }}
+
+jobs:
+  # {{ range $_, $base_image := $base_images }}
+  # {{ $image := replace "bazzite" "bazzite-dx" $base_image }}
+  - containerfile: Containerfile
+    output-name: >-
+      {{ if $secrets.CI -}}
+        ghcr.io/{{ $owner }}/{{ $image }}
+      {{- else -}}
+        ttl.sh/{{ $owner }}-{{ $image }}
+      {{- end }}
+    build-args:
+      BASE_IMAGE: "ghcr.io/ublue-os/{{ $base_image }}:{{ $major_version }}"
+
+    output-tags:
+      # {{ if $secrets.CI }}
+      - "latest"
+      - "stable"
+
+      # {{ range $tag := slice "latest" "stable" }}
+      - "{{ $tag }}"
+      - "{{ $tag }}-{{ $major_version }}"
+      - "{{ $major_version }}-{{ $tag }}"
+      - "{{ $major_version }}.{{ nowTag }}"
+      - "{{ $tag }}-{{ $major_version }}"
+      - "{{ $tag }}-{{ $major_version }}.{{ nowTag }}"
+      # {{ end }}
+
+      # {{ with $secrets.GITHUB_SHA }}
+      - "{{ . }}"
+      # {{ end }}
+
+      # {{ else }}
+      - "1h"
+      # {{ end }}
+
+    labels:
+      io.artifacthub.package.keywords: bootc,ublue,universal-blue
+      io.artifacthub.package.license: Apache-2.0
+      org.opencontainers.image.title: "{{ $image }}"
+
+      # {{ with $secrets.GITHUB_REPOSITORY }}
+      org.opencontainers.image.source: "https://github.com/{{ $secrets.GITHUB_REPOSITORY }}/blob/main/Containerfile"
+      org.opencontainers.image.documentation: https://raw.githubusercontent.com/{{ $secrets.GITHUB_REPOSITORY }}/refs/heads/main/README.md
+      org.opencontainers.image.url: "https://github.com/{{ $secrets.GITHUB_REPOSITORY }}"
+      # {{ end }}
+
+      org.opencontainers.image.version: "{{ nowTag }}"
+      org.opencontainers.image.vendor: "{{ $owner }}"
+      containers.bootc: "1"
+  # {{ end }}
