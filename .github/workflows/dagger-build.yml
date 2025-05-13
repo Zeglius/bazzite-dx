@@ -19,22 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup larger container storage
-        run: |
-          set -euo pipefail
-
-          # Setup docker storage directory in /mnt
-          sudo mkdir -p /mnt/var_lib_docker
-          sudo chown 777 /mnt/var_lib_docker
-
-          # Stop docker service before bind mounting
-          sudo systemctl stop docker
-
-          # Bind mount /mnt/var_lib_docker to /var/lib/docker
-          sudo mount --bind /mnt/var_lib_docker /var/lib/docker
-
-          # Start docker service
-          sudo systemctl start docker
+      - name: Mount BTRFS for docker storage
+        env:
+          BTRFS_TARGET_DIR: "/var/lib/docker"
+          BTRFS_MOUNT_OPTS: "compress-force=zstd:1"
+        run: ${{ github.workspace }}/.github/workflows/mount_btrfs.sh
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
